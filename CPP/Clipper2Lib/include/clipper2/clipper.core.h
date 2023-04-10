@@ -85,6 +85,40 @@ namespace Clipper2Lib
 
   // Point ------------------------------------------------------------------------
 
+#if !_HAS_CXX17
+  template<typename T1, typename T2>
+  void assignValues(T1& x, T1& y, int64_t& z, const T2 x_, const T2 y_, const int64_t z_);
+
+  template<>
+  inline void assignValues<int64_t, double>(int64_t& x, int64_t& y, int64_t& z, const double x_, const double y_, const int64_t z_)
+  {
+      x = static_cast<int64_t>(std::round(x_));
+      y = static_cast<int64_t>(std::round(y_));
+      z = z_;
+  }
+  template<>
+  inline void assignValues<int64_t, int64_t>(int64_t& x, int64_t& y, int64_t& z, const int64_t x_, const int64_t y_, const int64_t z_)
+  {
+      x = x_;
+      y = y_;
+      z = z_;
+  }
+  template<>
+  inline void assignValues<double, double>(double& x, double& y, int64_t& z, const double x_, const double y_, const int64_t z_)
+  {
+      x = x_;
+      y = y_;
+      z = z_;
+  }
+  template<>
+  inline void assignValues<double, int64_t>(double& x, double& y, int64_t& z, const int64_t x_, const int64_t y_, const int64_t z_)
+  {
+      x = static_cast<double>(x_);
+      y = static_cast<double>(y_);
+      z = z_;
+  }
+#endif
+
   template <typename T>
   struct Point {
     T x;
@@ -94,21 +128,27 @@ namespace Clipper2Lib
 
     template <typename T2>
     inline void Init(const T2 x_ = 0, const T2 y_ = 0, const int64_t z_ = 0)
+#if _HAS_CXX17
     {
-      if constexpr (std::numeric_limits<T>::is_integer &&
-        !std::numeric_limits<T2>::is_integer)
-      {
-        x = static_cast<T>(std::round(x_));
-        y = static_cast<T>(std::round(y_));
-        z = z_;
-      }
-      else
-      {
-        x = static_cast<T>(x_);
-        y = static_cast<T>(y_);
-        z = z_;
-      }
+        if constexpr(std::numeric_limits<T>::is_integer &&
+            !std::numeric_limits<T2>::is_integer)
+        {
+            x = static_cast<T>(std::round(x_));
+            y = static_cast<T>(std::round(y_));
+            z = z_;
+        }
+        else
+        {
+            x = static_cast<T>(x_);
+            y = static_cast<T>(y_);
+            z = z_;
+        }
     }
+#else
+    {
+        assignValues(x, y, z, x_, y_, z_);
+    }
+#endif
 
     explicit Point() : x(0), y(0), z(0) {};
 
@@ -313,6 +353,51 @@ namespace Clipper2Lib
     }
   };
 
+#if !_HAS_CXX17
+  template<typename T1, typename T2>
+  Rect<T1> ScaleRect(const Rect<T2>& rect, double scale);
+
+  template<>
+  inline Rect<int64_t> ScaleRect<int64_t, double>(const Rect<double>& rect, double scale)
+  {
+      Rect<int64_t> result;
+      result.left = static_cast<int64_t>(std::round(rect.left * scale));
+      result.top = static_cast<int64_t>(std::round(rect.top * scale));
+      result.right = static_cast<int64_t>(std::round(rect.right * scale));
+      result.bottom = static_cast<int64_t>(std::round(rect.bottom * scale));
+      return result;
+  }
+  template<>
+  inline Rect<int64_t> ScaleRect<int64_t, int64_t>(const Rect<int64_t>& rect, double scale)
+  {
+      Rect<int64_t> result;
+      result.left = static_cast<int64_t>(rect.left * scale);
+      result.top = static_cast<int64_t>(rect.top * scale);
+      result.right = static_cast<int64_t>(rect.right * scale);
+      result.bottom = static_cast<int64_t>(rect.bottom * scale);
+      return result;
+  }
+  template<>
+  inline Rect<double> ScaleRect<double, double>(const Rect<double>& rect, double scale)
+  {
+      Rect<double> result;
+      result.left = rect.left * scale;
+      result.top = rect.top * scale;
+      result.right = rect.right * scale;
+      result.bottom = rect.bottom * scale;
+      return result;
+  }
+  template<>
+  inline Rect<double> ScaleRect<double, int64_t>(const Rect<int64_t>& rect, double scale)
+  {
+      Rect<double> result;
+      result.left = rect.left * scale;
+      result.top = rect.top * scale;
+      result.right = rect.right * scale;
+      result.bottom = rect.bottom * scale;
+      return result;
+  }
+#else
   template <typename T1, typename T2>
   inline Rect<T1> ScaleRect(const Rect<T2>& rect, double scale)
   {
@@ -335,6 +420,7 @@ namespace Clipper2Lib
     }
     return result;
   }
+#endif
 
   static const Rect64 MaxInvalidRect64 = Rect64(
     INT64_MAX, INT64_MAX, INT64_MIN, INT64_MIN);
@@ -432,6 +518,63 @@ namespace Clipper2Lib
     return ScalePath<T1, T2>(path, scale, scale, error_code);
   }
 
+#if !_HAS_CXX17
+  template<typename T1, typename T2>
+  Paths<T1> ScalePaths(const Paths<T2>& paths, double scale_x, double scale_y, int& error_code);
+
+  template<>
+  inline Paths<int64_t> ScalePaths<int64_t, double>(const Paths<double>& paths, double scale_x, double scale_y, int& error_code)
+  {
+      Paths<int64_t> result;
+      RectD r = GetBounds(paths);
+      if((r.left * scale_x) < min_coord ||
+          (r.right * scale_x) > max_coord ||
+          (r.top * scale_y) < min_coord ||
+          (r.bottom * scale_y) > max_coord)
+      {
+          error_code |= range_error_i;
+          DoError(range_error_i);
+          return result; // empty path
+      }
+
+      result.reserve(paths.size());
+      std::transform(paths.begin(), paths.end(), back_inserter(result),
+          [=, &error_code](const auto& path)
+          { return ScalePath<int64_t, double>(path, scale_x, scale_y, error_code); });
+      return result;
+  }
+  template<>
+  inline Paths<int64_t> ScalePaths<int64_t, int64_t>(const Paths<int64_t>& paths, double scale_x, double scale_y, int& error_code)
+  {
+      Paths<int64_t> result;
+      result.reserve(paths.size());
+      std::transform(paths.begin(), paths.end(), back_inserter(result),
+          [=, &error_code](const auto& path)
+          { return ScalePath<int64_t, int64_t>(path, scale_x, scale_y, error_code); });
+      return result;
+  }
+  template<>
+  inline Paths<double> ScalePaths<double, int64_t>(const Paths<int64_t>& paths, double scale_x, double scale_y, int& error_code)
+  {
+      Paths<double> result;
+      result.reserve(paths.size());
+      std::transform(paths.begin(), paths.end(), back_inserter(result),
+          [=, &error_code](const auto& path)
+          { return ScalePath<double, int64_t>(path, scale_x, scale_y, error_code); });
+      return result;
+  }
+  template<>
+  inline Paths<double> ScalePaths<double, double>(const Paths<double>& paths, double scale_x, double scale_y, int& error_code)
+  {
+      Paths<double> result;
+      result.reserve(paths.size());
+      std::transform(paths.begin(), paths.end(), back_inserter(result),
+          [=, &error_code](const auto& path)
+          { return ScalePath<double, double>(path, scale_x, scale_y, error_code); });
+      return result;
+  }
+
+#else
   template <typename T1, typename T2>
   inline Paths<T1> ScalePaths(const Paths<T2>& paths, 
     double scale_x, double scale_y, int& error_code)
@@ -459,6 +602,7 @@ namespace Clipper2Lib
       { return ScalePath<T1, T2>(path, scale_x, scale_y, error_code); });
     return result;
   }
+#endif
 
   template <typename T1, typename T2>
   inline Paths<T1> ScalePaths(const Paths<T2>& paths, 
