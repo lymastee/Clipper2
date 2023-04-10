@@ -87,14 +87,28 @@ namespace Clipper2Lib
 
 #if !_HAS_CXX17
   template<typename T1, typename T2>
+  void assignValues(T1& x, T1& y, const T2 x_, const T2 y_);
+  template<typename T1, typename T2>
   void assignValues(T1& x, T1& y, int64_t& z, const T2 x_, const T2 y_, const int64_t z_);
 
+  template<>
+  inline void assignValues<int64_t, double>(int64_t& x, int64_t& y, const double x_, const double y_)
+  {
+      x = static_cast<int64_t>(std::round(x_));
+      y = static_cast<int64_t>(std::round(y_));
+  }
   template<>
   inline void assignValues<int64_t, double>(int64_t& x, int64_t& y, int64_t& z, const double x_, const double y_, const int64_t z_)
   {
       x = static_cast<int64_t>(std::round(x_));
       y = static_cast<int64_t>(std::round(y_));
       z = z_;
+  }
+  template<>
+  inline void assignValues<int64_t, int64_t>(int64_t& x, int64_t& y, const int64_t x_, const int64_t y_)
+  {
+      x = x_;
+      y = y_;
   }
   template<>
   inline void assignValues<int64_t, int64_t>(int64_t& x, int64_t& y, int64_t& z, const int64_t x_, const int64_t y_, const int64_t z_)
@@ -104,11 +118,23 @@ namespace Clipper2Lib
       z = z_;
   }
   template<>
+  inline void assignValues<double, double>(double& x, double& y, const double x_, const double y_)
+  {
+      x = x_;
+      y = y_;
+  }
+  template<>
   inline void assignValues<double, double>(double& x, double& y, int64_t& z, const double x_, const double y_, const int64_t z_)
   {
       x = x_;
       y = y_;
       z = z_;
+  }
+  template<>
+  inline void assignValues<double, int64_t>(double& x, double& y, const int64_t x_, const int64_t y_)
+  {
+      x = static_cast<double>(x_);
+      y = static_cast<double>(y_);
   }
   template<>
   inline void assignValues<double, int64_t>(double& x, double& y, int64_t& z, const int64_t x_, const int64_t y_, const int64_t z_)
@@ -181,19 +207,25 @@ namespace Clipper2Lib
 
     template <typename T2>
     inline void Init(const T2 x_ = 0, const T2 y_ = 0)
+#if _HAS_CXX17
     {
-      if constexpr (std::numeric_limits<T>::is_integer &&
-        !std::numeric_limits<T2>::is_integer)
-      {
-        x = static_cast<T>(std::round(x_));
-        y = static_cast<T>(std::round(y_));
-      }
-      else
-      {
-        x = static_cast<T>(x_);
-        y = static_cast<T>(y_);
-      }
+        if constexpr(std::numeric_limits<T>::is_integer &&
+            !std::numeric_limits<T2>::is_integer)
+        {
+            x = static_cast<T>(std::round(x_));
+            y = static_cast<T>(std::round(y_));
+        }
+        else
+        {
+            x = static_cast<T>(x_);
+            y = static_cast<T>(y_);
+        }
     }
+#else
+    {
+        assignValues(x, y, x_, y_);
+    }
+#endif
 
     explicit Point() : x(0), y(0) {};
 
