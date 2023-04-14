@@ -143,6 +143,19 @@ namespace Clipper2Lib
       y = static_cast<double>(y_);
       z = z_;
   }
+  template<>
+  inline void assignValues<double, int>(double& x, double& y, const int x_, const int y_)
+  {
+      x = static_cast<double>(x_);
+      y = static_cast<double>(y_);
+  }
+  template<>
+  inline void assignValues<double, int>(double& x, double& y, int64_t& z, const int x_, const int y_, const int64_t z_)
+  {
+      x = static_cast<double>(x_);
+      y = static_cast<double>(y_);
+      z = z_;
+  }
 #endif
 
   template <typename T>
