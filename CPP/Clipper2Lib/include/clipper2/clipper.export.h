@@ -97,7 +97,11 @@ inline Rect<T> CRectToRect(const CRect<T>& rect)
   return result;
 }
 
+#if defined(WINDOWS) || defined(_WINDOWS)
 #define EXTERN_DLL_EXPORT extern "C" __declspec(dllexport)
+#else
+#define EXTERN_DLL_EXPORT extern "C"
+#endif
 
 //////////////////////////////////////////////////////
 // EXPORTED FUNCTION DEFINITIONS
